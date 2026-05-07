@@ -6,6 +6,7 @@ import fs from 'node:fs';
 export function restartEnvFileChange(): Plugin {
   return {
     name: 'watch-env-and-exit',
+    apply: 'serve',
     config(config, env) {
       const root = config.root || process.cwd();
       const mode = env.mode || 'development';

@@ -11,9 +11,8 @@ import { layoutWrapperPlugin } from './plugins/layouts';
 import { loadFontsFromTailwindSource } from './plugins/loadFontsFromTailwindSource';
 import { nextPublicProcessEnv } from './plugins/nextPublicProcessEnv';
 import { restart } from './plugins/restart';
-import { restartEnvFileChange } from './plugins/restartEnvFileChange';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   build: {
     // Server bundle uses top-level await (Hono entry); browser-ish targets break SSR build.
     target: 'esnext',
@@ -53,7 +52,6 @@ export default defineConfig({
   logLevel: 'info',
   plugins: [
     nextPublicProcessEnv(),
-    restartEnvFileChange(),
     reactRouterHonoServer({
       serverEntryPoint: './__create/index.ts',
       runtime: 'node',
@@ -67,17 +65,21 @@ export default defineConfig({
         plugins: ['styled-jsx/babel'],
       },
     }),
-    restart({
-      restart: [
-        'src/**/page.jsx',
-        'src/**/page.tsx',
-        'src/**/layout.jsx',
-        'src/**/layout.tsx',
-        'src/**/route.js',
-        'src/**/route.ts',
-      ],
-    }),
-    consoleToParent(),
+    ...(command === 'serve'
+      ? [
+          restart({
+            restart: [
+              'src/**/page.jsx',
+              'src/**/page.tsx',
+              'src/**/layout.jsx',
+              'src/**/layout.tsx',
+              'src/**/route.js',
+              'src/**/route.ts',
+            ],
+          }),
+          consoleToParent(),
+        ]
+      : []),
     loadFontsFromTailwindSource(),
     addRenderIds(),
     reactRouter(),
@@ -114,4 +116,4 @@ export default defineConfig({
       clientFiles: ['./src/app/**/*', './src/app/root.tsx', './src/app/routes.ts'],
     },
   },
-});
+}));
