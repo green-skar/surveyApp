@@ -1,13 +1,20 @@
 /**
  * Client-side JWT session helper (`@auth/create` is aliased to a small shim).
- * Credentials providers, email verification, and sign-in rules live in
- * `apps/web/__create/index.ts` (Hono + @hono/auth-js).
+ * Credentials providers mirror `apps/web/__create/index.ts` (Hono + @hono/auth-js).
  */
+import { randomBytes } from "node:crypto";
 import CreateAuth from "@auth/create"
 import Credentials from "@auth/core/providers/credentials"
 import { CredentialsSignin } from '@auth/core/errors'
 import pool from '@/lib/pgPool'
+import { sendVerificationEmail } from '@/lib/sendVerificationEmail'
 import { hash, verify } from 'argon2'
+
+function credentialsSignin(code) {
+  const err = new CredentialsSignin();
+  err.code = code;
+  return err;
+}
 
 function Adapter(client) {
   return {
@@ -275,27 +282,27 @@ export const { auth } = CreateAuth({
       return null;
     }
 
-    // logic to verify if user exists
-    const user = await adapter.getUserByEmail(email);
+    const user = await adapter.getUserByEmail(email.trim());
     if (!user) {
-      const error = new CredentialsSignin();
-      error.code = 'no-account';
-      throw error;
+      throw credentialsSignin('no-account');
     }
     const matchingAccount = user.accounts.find(
       (account) => account.provider === 'credentials'
     );
     const accountPassword = matchingAccount?.password;
     if (!accountPassword) {
-      throw new CredentialsSignin();
+      throw credentialsSignin('no-account');
     }
 
     const isValid = await verify(accountPassword, password);
     if (!isValid) {
-      throw new CredentialsSignin();
+      throw credentialsSignin('invalid-credentials');
     }
 
-    // return user object with the their profile data
+    if (!user.emailVerified) {
+      throw credentialsSignin('unverified');
+    }
+
     return user;
   },
 }),
@@ -315,7 +322,7 @@ export const { auth } = CreateAuth({
     image: { label: 'Image', type: 'text', required: false },
   },
   authorize: async (credentials) => {
-    const { email, password } = credentials;
+    const { email, password, name, image } = credentials;
     if (!email || !password) {
       return null;
     }
@@ -323,21 +330,59 @@ export const { auth } = CreateAuth({
       return null;
     }
 
-    // logic to verify if user exists
-    const user = await adapter.getUserByEmail(email);
-    if (!user) {
+    try {
+      const user = await adapter.getUserByEmail(email.trim());
+      if (user) {
+        if (user.emailVerified) {
+          throw credentialsSignin('email-already-verified');
+        }
+        throw credentialsSignin('pending-verification-signup');
+      }
+
+      const emailTrim = email.trim();
+      const emailLower = emailTrim.toLowerCase();
+      const displayName =
+        typeof name === 'string' && name.trim().length > 0 ? name.trim() : '';
+      const nameLower = displayName ? displayName.toLowerCase() : '';
+
+      if (displayName) {
+        const taken = await pool.query(
+          `SELECT 1 FROM auth_users
+           WHERE name IS NOT NULL AND trim(name) <> ''
+             AND lower(trim(name)) = $1 LIMIT 1`,
+          [nameLower],
+        );
+        if (taken.rowCount !== 0) {
+          throw credentialsSignin('username-taken');
+        }
+
+        const usernameIsSomeoneEmail = await pool.query(
+          `SELECT 1 FROM auth_users
+           WHERE email IS NOT NULL AND trim(email) <> ''
+             AND lower(trim(email)) = $1 LIMIT 1`,
+          [nameLower],
+        );
+        if (usernameIsSomeoneEmail.rowCount !== 0) {
+          throw credentialsSignin('username-conflicts-email');
+        }
+      }
+
+      const emailIsSomeoneUsername = await pool.query(
+        `SELECT 1 FROM auth_users
+         WHERE name IS NOT NULL AND trim(name) <> ''
+           AND lower(trim(name)) = $1 LIMIT 1`,
+        [emailLower],
+      );
+      if (emailIsSomeoneUsername.rowCount !== 0) {
+        throw credentialsSignin('email-reserved-as-username');
+      }
+
       const newUser = await adapter.createUser({
         emailVerified: null,
-        email,
-        name:
-          typeof credentials.name === 'string' &&
-          credentials.name.trim().length > 0
-            ? credentials.name
-            : undefined,
+        email: emailTrim,
+        name: displayName || undefined,
         image:
-          typeof credentials.image === 'string'
-            ? credentials.image
-            : undefined,
+          typeof image === 'string' && image.length > 0 ? image : undefined,
       });
       await adapter.linkAccount({
         extraData: {
@@ -348,9 +393,49 @@ export const { auth } = CreateAuth({
         providerAccountId: newUser.id,
         provider: 'credentials',
       });
+      const token = randomBytes(32).toString('hex');
+      const expires = new Date(Date.now() + 1000 * 60 * 60 * 24);
+      await adapter.createVerificationToken({
+        identifier: emailTrim,
+        token,
+        expires,
+      });
+      await sendVerificationEmail({ to: emailTrim, token });
       return newUser;
+    } catch (error) {
+      if (error instanceof CredentialsSignin) {
+        throw error;
+      }
+      const maybeMessage = String(error?.message ?? '');
+      if (
+        maybeMessage.includes('Connection terminated unexpectedly') ||
+        maybeMessage.includes('SSL/TLS required') ||
+        error?.code === 'ECONNRESET' ||
+        error?.code === 'ECONNREFUSED'
+      ) {
+        throw credentialsSignin('service-unavailable');
+      }
+      if (maybeMessage.includes('password authentication failed')) {
+        throw credentialsSignin('db-auth-failed');
+      }
+      if (
+        error?.code === '23505' &&
+        (error?.constraint === 'auth_users_pkey' ||
+          error?.constraint === 'auth_accounts_pkey')
+      ) {
+        throw credentialsSignin('db-sequence-misaligned');
+      }
+      if (error?.code === '23505') {
+        const c = String(error?.constraint ?? '');
+        if (c === 'auth_users_email_lower_uidx') {
+          throw credentialsSignin('email-already-verified');
+        }
+        if (c === 'auth_users_name_lower_uidx') {
+          throw credentialsSignin('username-taken');
+        }
+      }
+      throw error;
     }
-    return null;
   },
 })],
   pages: {

@@ -5,6 +5,27 @@ import { Loader2, Sparkles } from "lucide-react";
 const inputClass =
   "w-full rounded-2xl border border-line bg-surface-card px-4 py-3 text-ink focus:border-brand focus:ring-2 focus:ring-brand/20";
 
+function messageForSignupError(code) {
+  switch (code) {
+    case "service-unavailable":
+      return "Sign-up is temporarily unavailable because the database connection failed. Please try again shortly.";
+    case "db-auth-failed":
+      return "Sign-up cannot connect to the database because the DB username/password is invalid. Update DATABASE_URL and try again.";
+    case "db-sequence-misaligned":
+      return "Sign-up hit a database ID sequencing issue. Please retry in a few seconds. If it persists, restart the server or run migrations.";
+    case "username-taken":
+      return "That username is already taken. Try another one or sign in if it is yours.";
+    case "username-conflicts-email":
+      return "That username matches another member’s email address. Choose a different username.";
+    case "email-reserved-as-username":
+      return "This email is already in use as another member’s username. Use a different email or sign in.";
+    case "CredentialsSignin":
+      return "Sign-up could not be completed. Please verify your details and try again.";
+    default:
+      return code ? `Sign-up failed (${code}). Please try again.` : null;
+  }
+}
+
 function SignupPage() {
   const [error, setError] = useState(null);
   const [stage, setStage] = useState("form");
@@ -13,6 +34,9 @@ function SignupPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [checkingVerification, setCheckingVerification] = useState(false);
+  const [pendingVerificationMode, setPendingVerificationMode] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendNotice, setResendNotice] = useState(null);
   const hasHandledVerifiedRef = useRef(false);
   const hasScheduledRedirectRef = useRef(false);
 
@@ -31,7 +55,17 @@ function SignupPage() {
           body: JSON.stringify({ email }),
         });
         const data = await res.json().catch(() => ({}));
-        if (!cancelled && data?.verified && !hasHandledVerifiedRef.current) {
+        if (cancelled) return;
+        if (data?.status === "missing") {
+          setError(
+            "We could not find your account yet. If you just signed up, wait a moment and refresh, or try signing up again.",
+          );
+          return;
+        }
+        const isVerified =
+          data?.status === "verified" ||
+          (data?.verified === true && data?.status !== "missing" && data?.status !== "pending");
+        if (isVerified && !hasHandledVerifiedRef.current) {
           hasHandledVerifiedRef.current = true;
           try {
             sessionStorage.setItem(
@@ -60,7 +94,7 @@ function SignupPage() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [stage, email]);
+  }, [stage, email, password]);
 
   useEffect(() => {
     if (stage !== "verified" || hasScheduledRedirectRef.current) return;
@@ -71,10 +105,59 @@ function SignupPage() {
     return () => clearTimeout(timeoutId);
   }, [stage]);
 
+  const requestResendVerification = async () => {
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setResendNotice({ type: "error", text: "Enter your email above first." });
+      return;
+    }
+    setResendLoading(true);
+    setResendNotice(null);
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 404) {
+        setResendNotice({
+          type: "error",
+          text: data.error || "No account found for this email.",
+        });
+        return;
+      }
+      if (!res.ok) {
+        setResendNotice({
+          type: "error",
+          text: data.error || "Could not send email. Try again.",
+        });
+        return;
+      }
+      if (data.alreadyVerified) {
+        setResendNotice({
+          type: "info",
+          text: "This email is already verified. You can sign in.",
+        });
+        return;
+      }
+      setResendNotice({
+        type: "success",
+        text: "A new verification link was sent. Check your inbox and spam folder.",
+      });
+    } catch {
+      setResendNotice({ type: "error", text: "Network error. Try again." });
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setResendNotice(null);
+    setPendingVerificationMode(false);
     setStage("form");
     hasHandledVerifiedRef.current = false;
     hasScheduledRedirectRef.current = false;
@@ -99,10 +182,24 @@ function SignupPage() {
         return;
       }
       if (result?.error) {
-        const msg =
-          result.error === "CredentialsSignin"
-            ? "Sign-up failed. This email may already be in use, or the details could not be saved."
-            : `Sign-up failed (${result.error}). Please try again.`;
+        if (result.error === "pending-verification-signup") {
+          setPendingVerificationMode(true);
+          setError(null);
+          return;
+        }
+        if (result.error === "email-already-verified") {
+          setError(
+            <>
+              An account with this email is already verified.{" "}
+              <a href="/account/signin" className="font-semibold underline">
+                Sign in
+              </a>{" "}
+              instead.
+            </>,
+          );
+          return;
+        }
+        const msg = messageForSignupError(result.error);
         setError(msg);
         return;
       }
@@ -111,7 +208,7 @@ function SignupPage() {
     } catch (err) {
       if (import.meta.env.DEV) console.error("[signup]", err);
       setError(
-        "Sign-up failed unexpectedly. If your email is new, check the browser console or server logs for details."
+        "Sign-up failed unexpectedly. If your email is new, check the browser console or server logs for details.",
       );
     } finally {
       setLoading(false);
@@ -167,6 +264,27 @@ function SignupPage() {
                       If you do not see the email, check spam/promotions. In local
                       dev, the link may be printed in the server logs.
                     </p>
+                    <button
+                      type="button"
+                      onClick={requestResendVerification}
+                      disabled={resendLoading}
+                      className="mt-4 w-full rounded-full border border-line py-2 text-sm font-semibold text-ink transition-colors hover:bg-white disabled:opacity-50"
+                    >
+                      {resendLoading ? "Sending…" : "Resend verification email"}
+                    </button>
+                    {resendNotice && (
+                      <p
+                        className={`mt-2 text-xs ${
+                          resendNotice.type === "success"
+                            ? "text-green-700"
+                            : resendNotice.type === "info"
+                              ? "text-ink-muted"
+                              : "text-red-600"
+                        }`}
+                      >
+                        {resendNotice.text}
+                      </p>
+                    )}
                   </>
                 ) : (
                   <>
@@ -200,6 +318,36 @@ function SignupPage() {
             </div>
           ) : (
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
+              {pendingVerificationMode && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                  <p className="font-semibold">Account exists — pending verification</p>
+                  <p className="mt-2 text-amber-900/90">
+                    This email already has an account that has not been verified yet. Check
+                    your inbox for the original link, or request a new verification email.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={requestResendVerification}
+                    disabled={resendLoading}
+                    className="mt-3 w-full rounded-full bg-brand py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
+                  >
+                    {resendLoading ? "Sending…" : "Send new verification link"}
+                  </button>
+                  {resendNotice && (
+                    <p
+                      className={`mt-2 text-xs ${
+                        resendNotice.type === "success"
+                          ? "text-green-800"
+                          : resendNotice.type === "info"
+                            ? "text-amber-900/80"
+                            : "text-red-700"
+                      }`}
+                    >
+                      {resendNotice.text}
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-ink-muted">
                   Username

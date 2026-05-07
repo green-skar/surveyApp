@@ -8,23 +8,47 @@ export async function POST(request) {
       return Response.json({ error: "Token and email are required" }, { status: 400 });
     }
 
-    const used = await sql`
-      DELETE FROM auth_verification_token
-      WHERE identifier = ${email} AND token = ${token}
-      RETURNING identifier
-    `;
+    const normalizedEmail = email.trim();
+    const normalizedToken = token.trim();
 
-    if (!used.length) {
+    const existingUser = await sql`
+      SELECT "emailVerified"
+      FROM auth_users
+      WHERE email = ${normalizedEmail}
+      LIMIT 1
+    `;
+    if (!existingUser.length) {
       return Response.json({ error: "Invalid or expired link" }, { status: 400 });
     }
 
-    await sql`
-      UPDATE auth_users
-      SET "emailVerified" = CURRENT_TIMESTAMP
-      WHERE email = ${email}
+    const activeToken = await sql`
+      SELECT identifier
+      FROM auth_verification_token
+      WHERE identifier = ${normalizedEmail}
+        AND token = ${normalizedToken}
+        AND expires > CURRENT_TIMESTAMP
+      LIMIT 1
     `;
 
-    return Response.json({ success: true });
+    if (activeToken.length) {
+      await sql`
+        UPDATE auth_users
+        SET "emailVerified" = CURRENT_TIMESTAMP
+        WHERE email = ${normalizedEmail}
+      `;
+      await sql`
+        DELETE FROM auth_verification_token
+        WHERE identifier = ${normalizedEmail} AND token = ${normalizedToken}
+      `;
+      return Response.json({ success: true });
+    }
+
+    // Idempotent success: if already verified, repeated visits should not show failure.
+    if (existingUser[0].emailVerified) {
+      return Response.json({ success: true, alreadyVerified: true });
+    }
+
+    return Response.json({ error: "Invalid or expired link" }, { status: 400 });
   } catch (e) {
     console.error(e);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });

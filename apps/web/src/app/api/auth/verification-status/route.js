@@ -9,13 +9,20 @@ export async function POST(request) {
     }
 
     const rows = await sql`
-      SELECT "emailVerified" FROM auth_users WHERE email = ${email} LIMIT 1
+      SELECT "emailVerified" FROM auth_users WHERE email = ${email.trim()} LIMIT 1
     `;
     if (!rows.length) {
-      return Response.json({ verified: false }, { status: 200 });
+      return Response.json({
+        status: "missing",
+        verified: false,
+      });
     }
 
-    return Response.json({ verified: Boolean(rows[0].emailVerified) });
+    const verified = Boolean(rows[0].emailVerified);
+    return Response.json({
+      status: verified ? "verified" : "pending",
+      verified,
+    });
   } catch (e) {
     console.error(e);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });

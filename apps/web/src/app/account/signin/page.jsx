@@ -50,7 +50,31 @@ function SigninPage() {
       setShowResendVerification(false);
       return;
     }
+    const effectiveCode =
+      code ||
+      (qErr && qErr !== "CredentialsSignin" && qErr !== "AccessDenied" ? qErr : null);
+    if (qErr === "no-account" || effectiveCode === "no-account") {
+      setError(
+        <>
+          No account for this email.{" "}
+          <Link to="/account/signup" className="font-semibold underline">
+            Sign up
+          </Link>{" "}
+          for an account, or check the address you typed.
+        </>,
+      );
+      setShowResendVerification(false);
+      return;
+    }
+    if (qErr === "invalid-credentials" || effectiveCode === "invalid-credentials") {
+      setError("Incorrect password. Try again or use Forgot password.");
+      setShowResendVerification(false);
+      return;
+    }
     if (qErr === "CredentialsSignin" && code === "unverified") {
+      setError("Pending email verification. Check your inbox before signing in.");
+      setShowResendVerification(true);
+    } else if (effectiveCode === "unverified") {
       setError("Pending email verification. Check your inbox before signing in.");
       setShowResendVerification(true);
     } else if (qErr === "AccessDenied") {
@@ -82,7 +106,29 @@ function SigninPage() {
         redirect: false,
       });
       if (result?.error) {
-        if (result.error === "CredentialsSignin") {
+        if (result.error === "unverified") {
+          setError(
+            "Pending email verification. Please verify your email before signing in.",
+          );
+          setShowResendVerification(true);
+        } else if (result.error === "no-account") {
+          setError(
+            <>
+              No account for this email.{" "}
+              <Link to="/account/signup" className="font-semibold underline">
+                Sign up
+              </Link>{" "}
+              for an account, or check the address you typed.
+            </>,
+          );
+          setShowResendVerification(false);
+        } else if (result.error === "invalid-credentials") {
+          setError("Incorrect password. Try again or use Forgot password.");
+          setShowResendVerification(false);
+        } else if (result.error === "AccessDenied") {
+          setError("Pending email verification. Please verify your email first.");
+          setShowResendVerification(true);
+        } else if (result.error === "CredentialsSignin") {
           try {
             const hintRes = await fetch("/api/auth/signin-hint", {
               method: "POST",
@@ -90,19 +136,33 @@ function SigninPage() {
               body: JSON.stringify({ email }),
             });
             const hint = await hintRes.json().catch(() => ({}));
-            setError(
-              hint?.hint === "pending_verification"
-                ? "Pending email verification. Please verify your email before signing in."
-                : "Invalid user credentials.",
-            );
-            setShowResendVerification(hint?.hint === "pending_verification");
+            if (hint?.hint === "pending_verification") {
+              setError(
+                "Pending email verification. Please verify your email before signing in.",
+              );
+              setShowResendVerification(true);
+            } else if (hint?.hint === "no_account") {
+              setError(
+                <>
+                  No account for this email.{" "}
+                  <Link to="/account/signup" className="font-semibold underline">
+                    Sign up
+                  </Link>{" "}
+                  for an account, or check the address you typed.
+                </>,
+              );
+              setShowResendVerification(false);
+            } else if (hint?.hint === "invalid_credentials") {
+              setError("Incorrect password. Try again or use Forgot password.");
+              setShowResendVerification(false);
+            } else {
+              setError("Invalid user credentials.");
+              setShowResendVerification(false);
+            }
           } catch {
             setError("Invalid user credentials.");
             setShowResendVerification(false);
           }
-        } else if (result.error === "AccessDenied") {
-          setError("Pending email verification. Please verify your email first.");
-          setShowResendVerification(true);
         } else {
           setError("Invalid user credentials.");
           setShowResendVerification(false);

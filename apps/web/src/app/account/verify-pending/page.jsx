@@ -7,20 +7,32 @@ export default function VerifyPendingPage() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [info, setInfo] = useState(null);
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setInfo(null);
     try {
       const res = await fetch("/api/auth/resend-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 404) {
+        setError(data.error || "No account found for this email.");
+        return;
+      }
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Request failed");
+        setError(data.error || "Request failed");
+        return;
+      }
+      if (data.alreadyVerified) {
+        setInfo("This email is already verified. You can sign in.");
+        setSent(true);
+        return;
       }
       setSent(true);
     } catch (err) {
@@ -45,12 +57,12 @@ export default function VerifyPendingPage() {
           <h1 className="text-xl font-bold text-ink">Resend verification</h1>
           <p className="mt-2 text-sm text-ink-muted">
             Enter the email you used to sign up. We&apos;ll send a new link if the
-            account exists and isn&apos;t verified yet.
+            account exists and is not verified yet.
           </p>
           {sent ? (
             <p className="mt-6 rounded-2xl border border-success-border bg-success-bg p-4 text-sm text-success-text">
-              If an unverified account exists for that email, a new message was
-              sent. Check your inbox (and spam).
+              {info ||
+                "If an unverified account exists for that email, a new message was sent. Check your inbox (and spam)."}
             </p>
           ) : (
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
