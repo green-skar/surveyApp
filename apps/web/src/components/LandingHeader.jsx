@@ -15,8 +15,8 @@ export default function LandingHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-line bg-surface-card/85 backdrop-blur-md">
-        <div className="flex w-full items-center justify-between px-4 py-4 sm:px-6 lg:px-10">
+      <header className="sticky top-0 z-40 border-b border-line">
+        <div className="flex w-full items-center justify-between bg-surface-card/85 px-4 py-4 backdrop-blur-md sm:px-6 lg:px-10">
           <a href="/" className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-white shadow-sm">
               <Sparkles className="h-4 w-4" />
@@ -24,7 +24,7 @@ export default function LandingHeader() {
             <div className="min-w-0">
               <p className="font-semibold tracking-tight text-ink">SurveyTasker</p>
               <p
-                className={`hidden text-xs font-medium text-ink-muted transition-all duration-300 sm:block ${
+                className={`text-xs font-medium text-ink-muted transition-all duration-300 motion-reduce:transition-none ${
                   collapsed
                     ? "max-h-8 translate-y-0 opacity-100"
                     : "max-h-0 -translate-y-1 opacity-0"
@@ -57,14 +57,14 @@ export default function LandingHeader() {
           </nav>
         </div>
         <div
-          className={`overflow-hidden border-t border-line/60 text-center transition-all duration-300 ${
+          className={`overflow-hidden border-t border-line/60 bg-transparent text-center transition-all duration-300 motion-reduce:transition-none ${
             collapsed ? "max-h-0 py-0 opacity-0" : "max-h-40 py-4 opacity-100"
           }`}
         >
-          <p className="text-2xl font-extrabold tracking-tight text-ink transition-all duration-300 sm:text-3xl">
+          <p className="text-2xl font-extrabold tracking-tight text-ink transition-all duration-300 motion-reduce:transition-none sm:text-3xl">
             Micro-Survey Tasks
           </p>
-          <p className="mt-1 text-sm font-medium text-ink-muted transition-opacity duration-300 sm:text-base">
+          <p className="mt-1 text-sm font-medium text-ink-muted transition-opacity duration-300 motion-reduce:transition-none sm:text-base">
             Clear Rewards, and Flexible Work that Fits your Schedule
           </p>
         </div>
