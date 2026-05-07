@@ -12,6 +12,9 @@ import { loadFontsFromTailwindSource } from './plugins/loadFontsFromTailwindSour
 import { nextPublicProcessEnv } from './plugins/nextPublicProcessEnv';
 import { restart } from './plugins/restart';
 
+const DEV_WEB_PORT = 4000;
+const DEV_API_TARGET = 'http://127.0.0.1:3000';
+
 export default defineConfig(({ command }) => ({
   build: {
     // Server bundle uses top-level await (Hono entry); browser-ish targets break SSR build.
@@ -67,6 +70,16 @@ export default defineConfig(({ command }) => ({
     }),
     ...(command === 'serve'
       ? [
+          {
+            name: 'dev-origins-banner',
+            configureServer() {
+              console.log(`[local-dev] Web UI: http://localhost:${DEV_WEB_PORT}`);
+              console.log(`[local-dev] API/Auth target: ${DEV_API_TARGET}`);
+              console.log(
+                '[local-dev] AUTH_URL should match browser origin (apps/web/.env -> AUTH_URL=http://localhost:4000)'
+              );
+            },
+          },
           restart({
             restart: [
               'src/**/page.jsx',
@@ -105,17 +118,17 @@ export default defineConfig(({ command }) => ({
   server: {
     allowedHosts: true,
     host: '0.0.0.0',
-    port: 4000,
+    port: DEV_WEB_PORT,
     strictPort: true,
     proxy: {
       // In local dev, react-router-hono-server handles API/auth on port 3000.
       // Proxy /api and /integrations so the browser can stay on the Vite origin.
       '/api': {
-        target: 'http://127.0.0.1:3000',
+        target: DEV_API_TARGET,
         changeOrigin: true,
       },
       '/integrations': {
-        target: 'http://127.0.0.1:3000',
+        target: DEV_API_TARGET,
         changeOrigin: true,
       },
     },

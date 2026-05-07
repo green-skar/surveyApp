@@ -12,7 +12,19 @@ const envInt = (value, fallback) => {
  */
 function normalizeDatabaseUrl(url) {
   if (!url || typeof url !== 'string') return url;
-  return url.replace(/@localhost(?=[:/?#]|$)/gi, '@127.0.0.1');
+  const localNormalized = url.replace(/@localhost(?=[:/?#]|$)/gi, '@127.0.0.1');
+  try {
+    const parsed = new URL(localNormalized);
+    const isLocalHost = /^(localhost|127\.0\.0\.1|::1)$/i.test(parsed.hostname);
+    const hasSslMode = parsed.searchParams.has('sslmode');
+    if (!isLocalHost && !hasSslMode) {
+      parsed.searchParams.set('sslmode', 'require');
+      return parsed.toString();
+    }
+    return localNormalized;
+  } catch {
+    return localNormalized;
+  }
 }
 
 const rawUrl = String(process.env.DATABASE_URL ?? '').trim();
@@ -24,10 +36,25 @@ if (!rawUrl) {
   );
 }
 
+const isRemoteDbHost = (() => {
+  try {
+    if (!connectionString) return false;
+    const { hostname } = new URL(connectionString);
+    return !/^(localhost|127\.0\.0\.1|::1)$/i.test(hostname);
+  } catch {
+    return false;
+  }
+})();
+
+const sslExplicitlyDisabled = /sslmode=disable|ssl=false/i.test(connectionString ?? '');
+
 const useSsl =
-  /neon\.tech|neon\.aws|sslmode=require|sslmode=verify-full|ssl=true/i.test(
-    connectionString ?? '',
-  ) || String(process.env.DATABASE_SSL ?? '').toLowerCase() === 'true';
+  String(process.env.DATABASE_SSL ?? '').toLowerCase() === 'true' ||
+  (!sslExplicitlyDisabled &&
+    (isRemoteDbHost ||
+      /neon\.tech|neon\.aws|sslmode=require|sslmode=verify-full|ssl=true/i.test(
+        connectionString ?? '',
+      )));
 
 /**
  * Shared pg pool for Auth.js adapter + any direct `pool.query` usage.
@@ -39,6 +66,12 @@ const pool = new pg.Pool({
   idleTimeoutMillis: envInt(process.env.DB_POOL_IDLE_TIMEOUT_MS, 30_000),
   connectionTimeoutMillis: envInt(process.env.DB_POOL_CONNECTION_TIMEOUT_MS, 10_000),
   ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+});
+
+pool.on('error', (error) => {
+  // #region agent log
+  fetch('http://127.0.0.1:7792/ingest/21049abd-be9c-4828-94c7-488dccea2750',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'836783'},body:JSON.stringify({sessionId:'836783',runId:'pre-fix',hypothesisId:'H10',location:'src/lib/pgPool.js:59',message:'pg pool emitted error',data:{errorName:error?.name ?? null,errorMessage:error?.message ?? null,errorCode:error?.code ?? null,isRemoteDbHost,useSsl},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
 });
 
 export default pool;

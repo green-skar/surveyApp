@@ -157,9 +157,9 @@ export default function OnboardingPage() {
         toast.error(data.error || `Could not save profile (${res.status})`);
         return;
       }
-      toast.success("Profile setup complete!");
+        toast.success("Profile setup complete!");
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
-      if (typeof window !== "undefined") {
+        if (typeof window !== "undefined") {
         window.location.href = "/dashboard";
       }
     } catch {
@@ -260,8 +260,8 @@ export default function OnboardingPage() {
           >
             <div className="space-y-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand/10 text-brand">
-                <Globe size={32} />
-              </div>
+              <Globe size={32} />
+            </div>
               <h2 className="text-3xl font-bold text-ink">Country & identity</h2>
               <p className="text-ink-muted">
                 Select your country, then complete verification with the details
@@ -270,10 +270,10 @@ export default function OnboardingPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium text-ink-muted">Country</label>
                 <select
-                  value={formData.country}
-                  onChange={(e) =>
-                    setFormData({ ...formData, country: e.target.value })
-                  }
+              value={formData.country}
+              onChange={(e) =>
+                setFormData({ ...formData, country: e.target.value })
+              }
                   className="w-full rounded-xl border border-line bg-surface-muted px-4 py-3 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
                 >
                   <option value="">Select country…</option>
@@ -420,7 +420,7 @@ export default function OnboardingPage() {
                 const selected = formData.payment_preference === pref.value;
                 const disabled = !pref.available;
                 return (
-                  <button
+                <button
                     key={pref.value}
                     type="button"
                     disabled={disabled}
@@ -429,8 +429,8 @@ export default function OnboardingPage() {
                         toast.info(`${pref.label} is coming soon.`);
                         return;
                       }
-                      setFormData({
-                        ...formData,
+                    setFormData({
+                      ...formData,
                         payment_preference: pref.value,
                       });
                     }}
@@ -578,8 +578,8 @@ export default function OnboardingPage() {
                   "Verified"
                 ) : (
                   "Verify & save payout method"
-                )}
-              </button>
+                  )}
+                </button>
             </div>
 
             <button

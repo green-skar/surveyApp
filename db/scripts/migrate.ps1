@@ -12,7 +12,8 @@ $files = @(
   "db/migrations/004_identity_ocr.sql",
   "db/migrations/005_payment_otp.sql",
   "db/migrations/006_concurrency_hardening.sql",
-  "db/migrations/007_free_tier_task_rewards.sql"
+  "db/migrations/007_free_tier_task_rewards.sql",
+  "db/migrations/008_admin_contact.sql"
 )
 
 foreach ($file in $files) {
