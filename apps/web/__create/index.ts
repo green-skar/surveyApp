@@ -16,7 +16,6 @@ import { createHonoServer } from 'react-router-hono-server/node';
 import { serializeError } from 'serialize-error';
 import NeonAdapter from './adapter';
 import { getHTMLForErrorPage } from './get-html-for-error-page';
-import { isAuthAction } from './is-auth-action';
 import { sendVerificationEmail } from '../src/lib/sendVerificationEmail.js';
 import pool from '../src/lib/pgPool.js';
 import { API_BASENAME, api } from './route-builder';
@@ -391,9 +390,6 @@ app.all('/integrations/:path{.+}', async (c, next) => {
 });
 
 app.use('/api/auth/*', async (c, next) => {
-  if (!isAuthAction(c.req.path)) {
-    return next();
-  }
   if (!process.env.AUTH_SECRET) {
     return c.json(
       {
