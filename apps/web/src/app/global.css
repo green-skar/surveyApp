@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-surface: #e7e1d4;
+    --color-surface-muted: #dbd2c1;
+    --color-brand: #2d4a22;
+    --color-brand-hover: #24381a;
+    --color-ink: #1a1a1a;
+    --color-shell: #152213;
+    --color-line: #e3dfd6;
+  }
+
+  html {
+    font-size: clamp(14px, 0.35vw + 12.7px, 16px);
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    @apply outline-none focus:outline-none;
+  }
+}
+
+.hero-gradient {
+  background: linear-gradient(180deg, #e7e1d4 0%, #dbd2c1 50%, #cfc4b0 100%);
+}
+
+.text-gradient {
+  @apply bg-gradient-to-r from-brand to-brand-muted bg-clip-text text-transparent;
+}
