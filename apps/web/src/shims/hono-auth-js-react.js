@@ -6,15 +6,21 @@
  * Re-export the real module but replace signIn with a version that resolves relative URLs.
  */
 import {
-  SessionContext,
-  SessionProvider,
   authConfigManager,
   getCsrfToken,
   getProviders,
+} from '@hono/auth-js/react';
+
+export {
+  SessionContext,
+  SessionProvider,
   getSession,
   signOut,
   useOauthPopupLogin,
   useSession,
+  authConfigManager,
+  getCsrfToken,
+  getProviders,
 } from '@hono/auth-js/react';
 
 function authErrorFromRedirectUrl(redirectUrl) {
@@ -74,15 +80,4 @@ async function signIn(provider, options = {}, authorizationParams = {}) {
   };
 }
 
-export {
-  SessionContext,
-  SessionProvider,
-  authConfigManager,
-  getCsrfToken,
-  getProviders,
-  getSession,
-  signIn,
-  signOut,
-  useOauthPopupLogin,
-  useSession,
-};
+export { signIn };

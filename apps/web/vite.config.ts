@@ -17,6 +17,18 @@ export default defineConfig({
   build: {
     // Server bundle uses top-level await (Hono entry); browser-ish targets break SSR build.
     target: 'esnext',
+    rollupOptions: {
+      onLog(level, log, defaultHandler) {
+        const message = typeof log === 'string' ? log : log.message;
+        if (
+          message.includes("Can't resolve original location") ||
+          message.includes('sourcemap for reporting an error')
+        ) {
+          return;
+        }
+        defaultHandler(level, log);
+      },
+    },
   },
   ssr: {
     target: 'node',
