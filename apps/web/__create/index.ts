@@ -1,7 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomBytes } from 'node:crypto';
 import nodeConsole from 'node:console';
-import { skipCSRFCheck } from '@auth/core';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { CredentialsSignin } from '@auth/core/errors';
 import Credentials from '@auth/core/providers/credentials';
 import { authHandler, initAuthConfig } from '@hono/auth-js';
@@ -20,6 +21,28 @@ import { sendVerificationEmail } from '../src/lib/sendVerificationEmail.js';
 import pool from '../src/lib/pgPool.js';
 import { API_BASENAME, api } from './route-builder';
 const als = new AsyncLocalStorage<{ requestId: string }>();
+
+function loadDotEnvIfPresent() {
+  const envPath = join(process.cwd(), '.env');
+  if (!existsSync(envPath)) return;
+  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t || t.startsWith('#')) continue;
+    const eq = t.indexOf('=');
+    if (eq === -1) continue;
+    const key = t.slice(0, eq).trim();
+    let value = t.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+}
+
+loadDotEnvIfPresent();
 
 for (const method of ['log', 'info', 'warn', 'error', 'debug'] as const) {
   const original = nodeConsole[method].bind(console);
@@ -108,7 +131,6 @@ if (process.env.AUTH_SECRET) {
         signIn: '/account/signin',
         signOut: '/account/logout',
       },
-      skipCSRFCheck,
       session: {
         strategy: 'jwt',
       },
@@ -326,6 +348,9 @@ if (process.env.AUTH_SECRET) {
           },
           authorize: async (credentials) => {
             const { email, password, name, image } = credentials;
+            // #region agent log
+            fetch('http://127.0.0.1:7792/ingest/21049abd-be9c-4828-94c7-488dccea2750',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'836783'},body:JSON.stringify({sessionId:'836783',runId:'pre-fix',hypothesisId:'H8',location:'__create/index.ts:330',message:'signup authorize entry',data:{hasEmail:Boolean(email),hasPassword:Boolean(password),hasName:Boolean(name),authUrl:process.env.AUTH_URL ?? null},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
             if (!email || !password) {
               return null;
             }
@@ -333,35 +358,60 @@ if (process.env.AUTH_SECRET) {
               return null;
             }
 
-            // logic to verify if user exists
-            const user = await adapter.getUserByEmail(email);
-            if (!user) {
-              const newUser = await adapter.createUser({
-                emailVerified: null,
-                email,
-                name: typeof name === 'string' && name.length > 0 ? name : undefined,
-                image: typeof image === 'string' && image.length > 0 ? image : undefined,
-              });
-              await adapter.linkAccount({
-                extraData: {
-                  password: await hash(password),
-                },
-                type: 'credentials',
-                userId: newUser.id,
-                providerAccountId: newUser.id,
-                provider: 'credentials',
-              });
-              const token = randomBytes(32).toString('hex');
-              const expires = new Date(Date.now() + 1000 * 60 * 60 * 24);
-              await adapter.createVerificationToken({
-                identifier: email,
-                token,
-                expires,
-              });
-              await sendVerificationEmail({ to: email, token });
-              return newUser;
+            try {
+              // logic to verify if user exists
+              const user = await adapter.getUserByEmail(email);
+              // #region agent log
+              fetch('http://127.0.0.1:7792/ingest/21049abd-be9c-4828-94c7-488dccea2750',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'836783'},body:JSON.stringify({sessionId:'836783',runId:'pre-fix',hypothesisId:'H8',location:'__create/index.ts:344',message:'signup existing-user lookup finished',data:{email,userExists:Boolean(user)},timestamp:Date.now()})}).catch(()=>{});
+              // #endregion
+              if (!user) {
+                const newUser = await adapter.createUser({
+                  emailVerified: null,
+                  email,
+                  name: typeof name === 'string' && name.length > 0 ? name : undefined,
+                  image: typeof image === 'string' && image.length > 0 ? image : undefined,
+                });
+                await adapter.linkAccount({
+                  extraData: {
+                    password: await hash(password),
+                  },
+                  type: 'credentials',
+                  userId: newUser.id,
+                  providerAccountId: newUser.id,
+                  provider: 'credentials',
+                });
+                const token = randomBytes(32).toString('hex');
+                const expires = new Date(Date.now() + 1000 * 60 * 60 * 24);
+                await adapter.createVerificationToken({
+                  identifier: email,
+                  token,
+                  expires,
+                });
+                await sendVerificationEmail({ to: email, token });
+                return newUser;
+              }
+              return null;
+            } catch (error) {
+              // #region agent log
+              fetch('http://127.0.0.1:7792/ingest/21049abd-be9c-4828-94c7-488dccea2750',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'836783'},body:JSON.stringify({sessionId:'836783',runId:'pre-fix',hypothesisId:'H9',location:'__create/index.ts:376',message:'signup authorize failed',data:{email,errorName:error?.name ?? null,errorMessage:error?.message ?? null,errorCode:error?.code ?? null,errorErrno:error?.errno ?? null},timestamp:Date.now()})}).catch(()=>{});
+              // #endregion
+              const maybeMessage = String(error?.message ?? '');
+              if (
+                maybeMessage.includes('Connection terminated unexpectedly') ||
+                maybeMessage.includes('SSL/TLS required') ||
+                error?.code === 'ECONNRESET'
+              ) {
+                const dbErr = new CredentialsSignin();
+                dbErr.code = 'service-unavailable';
+                throw dbErr;
+              }
+              if (maybeMessage.includes('password authentication failed')) {
+                const dbAuthErr = new CredentialsSignin();
+                dbAuthErr.code = 'db-auth-failed';
+                throw dbAuthErr;
+              }
+              throw error;
             }
-            return null;
           },
         }),
       ],

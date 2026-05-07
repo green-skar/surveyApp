@@ -106,6 +106,19 @@ export default defineConfig(({ command }) => ({
     allowedHosts: true,
     host: '0.0.0.0',
     port: 4000,
+    strictPort: true,
+    proxy: {
+      // In local dev, react-router-hono-server handles API/auth on port 3000.
+      // Proxy /api and /integrations so the browser can stay on the Vite origin.
+      '/api': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+      '/integrations': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+    },
     fs: {
       allow: ['..', '../../shared'],
     },
