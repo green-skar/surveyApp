@@ -18,8 +18,23 @@ function stripPreview(html) {
 /** Lazy singleton transporter (Gmail or generic SMTP). */
 let smtpTransport = null;
 
+/**
+ * Many PaaS hosts (e.g. Render) have no working IPv6 egress. Node may resolve
+ * smtp.gmail.com to IPv6 first → ENETUNREACH / ETIMEDOUT. Default to IPv4.
+ * Set SMTP_FAMILY=auto (or 0) to use Node's default resolution order.
+ */
+function smtpSocketFamily() {
+  const raw = String(process.env.SMTP_FAMILY ?? '4').trim().toLowerCase();
+  if (raw === 'auto' || raw === '0' || raw === 'any') return 0;
+  if (raw === '6' || raw === 'ipv6') return 6;
+  return 4;
+}
+
 function getSmtpTransport() {
   if (smtpTransport) return smtpTransport;
+
+  const family = smtpSocketFamily();
+  const familyOpts = family === 0 ? {} : { family };
 
   const gmailUser = process.env.GMAIL_USER?.trim();
   const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
@@ -29,6 +44,7 @@ function getSmtpTransport() {
       host: 'smtp.gmail.com',
       port: Number(process.env.SMTP_PORT || 587),
       secure: false,
+      ...familyOpts,
       auth: {
         user: gmailUser,
         pass: gmailPass,
@@ -45,6 +61,7 @@ function getSmtpTransport() {
       host,
       port: Number(process.env.SMTP_PORT || 587),
       secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
+      ...familyOpts,
       ...(user || pass ? { auth: { user: user || '', pass: pass || '' } } : {}),
     });
     return smtpTransport;
@@ -125,6 +142,7 @@ export async function sendAppEmail({ to, subject, html, text, requireDelivery = 
     to,
     subject,
     requireDelivery,
+    smtpFamily: smtpSocketFamily() || 'auto',
     hasGmail: Boolean(
       process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim(),
     ),
