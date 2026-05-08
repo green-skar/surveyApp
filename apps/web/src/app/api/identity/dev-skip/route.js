@@ -1,7 +1,17 @@
 import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
+import {
+  createLogger,
+  errorMeta,
+  getRequestFromRouteArg,
+  getRequestId,
+} from "@/lib/logger";
 
-export async function POST() {
+export async function POST(arg) {
+  const request = getRequestFromRouteArg(arg);
+  const log = createLogger("api_identity_dev_skip", {
+    requestId: getRequestId(request),
+  });
   try {
     if (process.env.NODE_ENV === "production") {
       return Response.json({ error: "Not available in production." }, { status: 403 });
@@ -31,7 +41,7 @@ export async function POST() {
 
     return Response.json({ ok: true });
   } catch (e) {
-    console.error(e);
+    log.error("handler_failed", errorMeta(e));
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

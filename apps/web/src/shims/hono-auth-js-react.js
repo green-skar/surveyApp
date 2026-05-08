@@ -10,6 +10,9 @@ import {
   getCsrfToken,
   getProviders,
 } from '@hono/auth-js/react';
+import { createLogger, errorMeta } from '@/lib/logger';
+
+const authClientLog = createLogger('auth_client');
 
 export {
   SessionContext,
@@ -49,13 +52,20 @@ async function signIn(provider, options = {}, authorizationParams = {}) {
   const { callbackUrl = window.location.href, redirect = true, ...opts } = options;
   const config = authConfigManager.getConfig();
   const href = `${config.baseUrl}${config.basePath}`;
-  // #region agent log
-  fetch('http://127.0.0.1:7792/ingest/21049abd-be9c-4828-94c7-488dccea2750',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'836783'},body:JSON.stringify({sessionId:'836783',runId:'pre-fix',hypothesisId:'H2',location:'src/shims/hono-auth-js-react.js:43',message:'client signIn entry',data:{provider:provider ?? null,redirect,hasCallbackUrl:Boolean(callbackUrl),baseUrl:config?.baseUrl ?? null,basePath:config?.basePath ?? null},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+  authClientLog.debug('signin_entry', {
+    provider: provider ?? null,
+    redirect,
+    hasCallbackUrl: Boolean(callbackUrl),
+    baseUrl: config?.baseUrl ?? null,
+    basePath: config?.basePath ?? null,
+  });
   const providers = await getProviders();
-  // #region agent log
-  fetch('http://127.0.0.1:7792/ingest/21049abd-be9c-4828-94c7-488dccea2750',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'836783'},body:JSON.stringify({sessionId:'836783',runId:'pre-fix',hypothesisId:'H2',location:'src/shims/hono-auth-js-react.js:47',message:'providers loaded',data:{providerCount:providers ? Object.keys(providers).length : 0,hasCredentialsSignup:Boolean(providers && providers['credentials-signup'])},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+  authClientLog.debug('providers_loaded', {
+    providerCount: providers ? Object.keys(providers).length : 0,
+    hasCredentialsSignup: Boolean(
+      providers && providers['credentials-signup'],
+    ),
+  });
   if (!providers) {
     window.location.href = `${href}/error`;
     return;
@@ -70,9 +80,10 @@ async function signIn(provider, options = {}, authorizationParams = {}) {
   try {
     csrfToken = await getCsrfToken();
   } catch (csrfError) {
-    // #region agent log
-    fetch('http://127.0.0.1:7792/ingest/21049abd-be9c-4828-94c7-488dccea2750',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'836783'},body:JSON.stringify({sessionId:'836783',runId:'pre-fix',hypothesisId:'H6',location:'src/shims/hono-auth-js-react.js:62',message:'csrf fetch failed, continuing without token',data:{errorName:csrfError?.name ?? null,errorMessage:csrfError?.message ?? null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    authClientLog.debug('csrf_fetch_failed', {
+      ...errorMeta(csrfError),
+      note: 'continuing_without_token',
+    });
   }
   const res = await fetch(`${signInUrl}?${new URLSearchParams(authorizationParams)}`, {
     method: 'POST',
@@ -88,9 +99,13 @@ async function signIn(provider, options = {}, authorizationParams = {}) {
     credentials: config.credentials,
   });
   const data = await res.json();
-  // #region agent log
-  fetch('http://127.0.0.1:7792/ingest/21049abd-be9c-4828-94c7-488dccea2750',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'836783'},body:JSON.stringify({sessionId:'836783',runId:'pre-fix',hypothesisId:'H3',location:'src/shims/hono-auth-js-react.js:73',message:'signIn response received',data:{status:res.status,ok:res.ok,url:data?.url ?? null,errorFromUrl:authErrorFromRedirectUrl(data?.url ?? null),codeFromUrl:authCodeFromRedirectUrl(data?.url ?? null)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+  authClientLog.debug('signin_response', {
+    status: res.status,
+    ok: res.ok,
+    url: data?.url ?? null,
+    errorFromUrl: authErrorFromRedirectUrl(data?.url ?? null),
+    codeFromUrl: authCodeFromRedirectUrl(data?.url ?? null),
+  });
   if (redirect) {
     const url = data.url ?? callbackUrl;
     window.location.href = url;

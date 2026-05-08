@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { isMailConfigured } from "@/lib/mail/sendAppEmail";
 import { sendPaymentOtpEmail } from "@/lib/sendPaymentOtpEmail";
 import { maskLoginEmail } from "@/lib/maskEmail";
+import { createLogger, errorMeta, getRequestId } from "@/lib/logger";
 
 function normalizeMpesaPhone(raw) {
   const s = String(raw || "").replace(/\s+/g, "");
@@ -61,6 +62,9 @@ function maskDestination(type, norm) {
 }
 
 export async function POST(request) {
+  const log = createLogger("api_payment_methods_request_otp", {
+    requestId: getRequestId(request),
+  });
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -133,7 +137,7 @@ export async function POST(request) {
 
     return Response.json(payload);
   } catch (e) {
-    console.error(e);
+    log.error("handler_failed", errorMeta(e));
     if (
       String(e?.message || "").includes("payment_method_otp_challenges") ||
       String(e?.code || "") === "42P01"

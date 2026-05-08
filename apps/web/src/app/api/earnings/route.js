@@ -1,7 +1,17 @@
 import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
+import {
+  createLogger,
+  errorMeta,
+  getRequestFromRouteArg,
+  getRequestId,
+} from "@/lib/logger";
 
-export async function GET() {
+export async function GET(arg) {
+  const request = getRequestFromRouteArg(arg);
+  const log = createLogger("api_earnings", {
+    requestId: getRequestId(request),
+  });
   try {
     const session = await auth();
     if (!session || !session.user?.id) {
@@ -77,7 +87,7 @@ export async function GET() {
       recentTasks,
     });
   } catch (error) {
-    console.error(error);
+    log.error("handler_failed", errorMeta(error));
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

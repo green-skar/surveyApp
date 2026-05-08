@@ -1,6 +1,12 @@
 import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
 import { ensureUserBalance } from "@/app/api/utils/ensureUserBalance";
+import {
+  createLogger,
+  errorMeta,
+  getRequestFromRouteArg,
+  getRequestId,
+} from "@/lib/logger";
 
 function coerceInterests(val) {
   if (Array.isArray(val)) return val.filter(Boolean);
@@ -19,7 +25,12 @@ function coerceInterests(val) {
   return [];
 }
 
-export async function GET() {
+export async function GET(arg) {
+  const request = getRequestFromRouteArg(arg);
+  const log = createLogger("api_profile", {
+    requestId: getRequestId(request),
+    method: "GET",
+  });
   try {
     const session = await auth();
     if (!session || !session.user?.id) {
@@ -53,12 +64,16 @@ export async function GET() {
       tasks_completed: ub?.tasks_completed ?? 0,
     });
   } catch (error) {
-    console.error(error);
+    log.error("handler_failed", errorMeta(error));
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
 export async function PUT(request) {
+  const log = createLogger("api_profile", {
+    requestId: getRequestId(request),
+    method: "PUT",
+  });
   try {
     const session = await auth();
     if (!session || !session.user?.id) {
@@ -179,7 +194,7 @@ export async function PUT(request) {
       tasks_completed: ub?.tasks_completed ?? 0,
     });
   } catch (error) {
-    console.error(error);
+    log.error("handler_failed", errorMeta(error));
     return Response.json(
       { error: error?.message || "Internal Server Error" },
       { status: 500 },

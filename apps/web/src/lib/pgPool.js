@@ -3,6 +3,9 @@ import {
   getNormalizedDatabaseUrl,
   isLikelyPrivateRenderPostgresHost,
 } from './databaseConnectionString.js';
+import { createLogger, errorMeta } from '@/lib/logger';
+
+const dbLog = createLogger('db');
 
 const envInt = (value, fallback) => {
   const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -13,9 +16,10 @@ const rawUrl = String(process.env.DATABASE_URL ?? '').trim();
 const connectionString = getNormalizedDatabaseUrl() || undefined;
 
 if (!rawUrl) {
-  console.warn(
-    '[SurveyTasker] DATABASE_URL is empty. Set it in apps/web/.env — sign-up and auth will fail until PostgreSQL is configured.',
-  );
+  dbLog.warn('database_url_empty', {
+    message:
+      'Set DATABASE_URL in apps/web/.env — sign-up and auth will fail until PostgreSQL is configured.',
+  });
 }
 
 const isRemoteDbHost = (() => {
@@ -62,9 +66,11 @@ const pool = new pg.Pool({
 });
 
 pool.on('error', (error) => {
-  // #region agent log
-  fetch('http://127.0.0.1:7792/ingest/21049abd-be9c-4828-94c7-488dccea2750',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'836783'},body:JSON.stringify({sessionId:'836783',runId:'pre-fix',hypothesisId:'H10',location:'src/lib/pgPool.js:59',message:'pg pool emitted error',data:{errorName:error?.name ?? null,errorMessage:error?.message ?? null,errorCode:error?.code ?? null,isRemoteDbHost,useSsl},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+  dbLog.error('pool_error', {
+    ...errorMeta(error),
+    isRemoteDbHost,
+    useSsl,
+  });
 });
 
 export default pool;

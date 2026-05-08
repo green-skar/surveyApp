@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import useAuth from "@/utils/useAuth";
 import { Loader2, Sparkles } from "lucide-react";
+import { createLogger, errorMeta } from "@/lib/logger";
+
+const signupPageLog = createLogger("auth_signup_page");
 
 const inputClass =
   "w-full rounded-2xl border border-line bg-surface-card px-4 py-3 text-ink focus:border-brand focus:ring-2 focus:ring-brand/20";
@@ -208,7 +211,7 @@ function SignupPage() {
 
       setStage("waiting");
     } catch (err) {
-      if (import.meta.env.DEV) console.error("[signup]", err);
+      signupPageLog.error("submit_unexpected", errorMeta(err));
       setError(
         "Sign-up failed unexpectedly. If your email is new, check the browser console or server logs for details.",
       );

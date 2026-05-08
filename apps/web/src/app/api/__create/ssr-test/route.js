@@ -5,6 +5,9 @@ import { renderToString } from 'react-dom/server';
 import routes from '../../../routes';
 import { serializeError } from 'serialize-error';
 import cleanStack from 'clean-stack';
+import { createLogger, errorMeta, getRequestId } from '@/lib/logger';
+
+const ssrTestLog = createLogger('dev_ssr_test');
 
 function serializeClean(err) {
 	// if we want to clean this more, maybe we should look at the file where it
@@ -31,6 +34,7 @@ const getHTMLOrError = (component) => {
 	}
 };
 export async function GET(request) {
+	const log = ssrTestLog.child({ requestId: getRequestId(request) });
 	const results = await Promise.allSettled(
 		routes.map(async (route) => {
 			let component = null;
@@ -40,7 +44,10 @@ export async function GET(request) {
 				);
 				component = response.default;
 			} catch (error) {
-				console.debug('Error importing component:', route.file, error);
+				log.debug('import_component_failed', {
+					routeFile: route.file,
+					...errorMeta(error),
+				});
 			}
 			if (!component) {
 				return null;

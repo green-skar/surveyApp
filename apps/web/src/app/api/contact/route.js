@@ -1,5 +1,6 @@
 import sql from "@/app/api/utils/sql";
 import { sendAppEmail } from "@/lib/mail/sendAppEmail";
+import { createLogger, errorMeta, getRequestId } from "@/lib/logger";
 
 const MAX_MESSAGE = 8000;
 
@@ -8,6 +9,9 @@ function isValidEmail(s) {
 }
 
 export async function POST(request) {
+  const log = createLogger("api_contact", {
+    requestId: getRequestId(request),
+  });
   try {
     const body = await request.json();
     const email = typeof body?.email === "string" ? body.email.trim() : "";
@@ -44,12 +48,14 @@ export async function POST(request) {
         text: [`From: ${email}`, "", message].join("\n"),
       });
     } else {
-      console.warn("[SurveyTasker] No GMAIL_USER — contact saved but not emailed.");
+      log.warn("inbox_not_configured", {
+        message: "Contact saved but not emailed (no GMAIL_USER / CONTACT_INBOX_EMAIL).",
+      });
     }
 
     return Response.json({ ok: true });
   } catch (e) {
-    console.error(e);
+    log.error("handler_failed", errorMeta(e));
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

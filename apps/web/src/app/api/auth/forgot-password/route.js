@@ -1,10 +1,14 @@
 import { randomBytes } from "node:crypto";
 import sql from "@/app/api/utils/sql";
 import { sendPasswordResetEmail } from "@/lib/sendPasswordResetEmail";
+import { createLogger, errorMeta, getRequestId } from "@/lib/logger";
 
 const RESET_PREFIX = "password-reset:";
 
 export async function POST(request) {
+  const log = createLogger("api_auth_forgot_password", {
+    requestId: getRequestId(request),
+  });
   try {
     const body = await request.json();
     const raw = String(body?.email || "").trim().toLowerCase();
@@ -40,7 +44,7 @@ export async function POST(request) {
         "If an account exists for that email, we sent password reset instructions.",
     });
   } catch (e) {
-    console.error(e);
+    log.error("handler_failed", errorMeta(e));
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

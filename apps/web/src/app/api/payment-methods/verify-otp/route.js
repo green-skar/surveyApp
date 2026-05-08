@@ -1,8 +1,12 @@
 import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
 import { sendPaymentMethodVerifiedEmail } from "@/lib/transactionalEmail";
+import { createLogger, errorMeta, getRequestId } from "@/lib/logger";
 
 export async function POST(request) {
+  const log = createLogger("api_payment_methods_verify_otp", {
+    requestId: getRequestId(request),
+  });
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -82,13 +86,16 @@ export async function POST(request) {
           methodLabel: methodLabels[type] || String(type),
         });
       } catch (e) {
-        console.error("[verify-otp] payment method email:", e);
+        log.warn("verified_email_send_failed", {
+          ...errorMeta(e),
+          methodType: type,
+        });
       }
     }
 
     return Response.json({ ok: true, method: inserted[0] });
   } catch (e) {
-    console.error(e);
+    log.error("handler_failed", errorMeta(e));
     if (
       String(e?.message || "").includes("payment_method_otp_challenges") ||
       String(e?.code || "") === "42P01"

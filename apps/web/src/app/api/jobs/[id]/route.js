@@ -2,8 +2,13 @@ import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
 import { ensureUserBalance } from "@/app/api/utils/ensureUserBalance";
 import { tierLevel } from "@/constants/tiers";
+import { createLogger, errorMeta, getRequestId } from "@/lib/logger";
 
 export async function GET(request, { params }) {
+  const log = createLogger("api_jobs_by_id", {
+    requestId: getRequestId(request),
+    jobId: params?.id ?? null,
+  });
   try {
     const session = await auth();
     if (!session || !session.user?.id) {
@@ -56,7 +61,7 @@ export async function GET(request, { params }) {
       requiredTier,
     });
   } catch (error) {
-    console.error(error);
+    log.error("handler_failed", errorMeta(error));
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

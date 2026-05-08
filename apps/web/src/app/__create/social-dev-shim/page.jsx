@@ -3,6 +3,9 @@
 import { signIn } from '@auth/create/react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { createLogger, errorMeta } from '@/lib/logger';
+
+const socialDevShimLog = createLogger('dev_social_shim');
 
 const isDev = process.env.NEXT_PUBLIC_CREATE_ENV === 'DEVELOPMENT';
 
@@ -47,7 +50,10 @@ export default function SocialDevShimPage() {
 			.then((r) => r.json())
 			.then((data) => setMissingSecrets(data.missing || []))
 			.catch((err) => {
-				console.error('Failed to check social secrets:', err);
+				socialDevShimLog.error('check_social_secrets_failed', {
+					provider,
+					...errorMeta(err),
+				});
 			});
 	}, [provider]);
 

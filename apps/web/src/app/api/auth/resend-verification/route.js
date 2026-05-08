@@ -1,21 +1,29 @@
 import { randomBytes } from "node:crypto";
 import sql from "@/app/api/utils/sql";
 import { sendVerificationEmail } from "@/lib/sendVerificationEmail";
+import { createLogger, errorMeta, getRequestId } from "@/lib/logger";
 
 export async function POST(request) {
+  const log = createLogger("auth_resend_verification", {
+    requestId: getRequestId(request),
+  });
   try {
+    log.info("request_received", {});
     const body = await request.json();
     const email = body?.email;
     if (!email || typeof email !== "string") {
+      log.warn("invalid_payload", { reason: "missing_or_invalid_email" });
       return Response.json({ error: "Email is required" }, { status: 400 });
     }
 
     const trimmed = email.trim();
+    log.info("lookup_user", { email: trimmed });
     const users = await sql`
       SELECT id, email, "emailVerified" FROM auth_users WHERE email = ${trimmed}
     `;
 
     if (!users.length) {
+      log.warn("user_not_found", { email: trimmed });
       return Response.json(
         { error: "No account found for this email." },
         { status: 404 },
@@ -23,6 +31,7 @@ export async function POST(request) {
     }
 
     if (users[0].emailVerified) {
+      log.info("already_verified", { userId: users[0].id });
       return Response.json({ ok: true, alreadyVerified: true });
     }
 
@@ -36,11 +45,16 @@ export async function POST(request) {
       VALUES (${trimmed}, ${expires}, ${token})
     `;
 
+    log.info("sending_verification_email", {
+      userId: users[0].id,
+      email: trimmed,
+    });
     await sendVerificationEmail({ to: trimmed, token });
+    log.info("verification_email_dispatched", { userId: users[0].id });
 
     return Response.json({ ok: true });
   } catch (e) {
-    console.error(e);
+    log.error("handler_failed", errorMeta(e));
     if (
       e?.code === "MAIL_NOT_CONFIGURED" ||
       e?.code === "MAIL_PROVIDER_REJECTED" ||

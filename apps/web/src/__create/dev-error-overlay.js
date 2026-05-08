@@ -1,3 +1,7 @@
+import { createLogger } from '../lib/logger.js';
+
+const devOverlayLog = createLogger('dev_error_overlay');
+
 (() => {
   if (!import.meta.env.DEV) return; // skip in prod
 
@@ -43,7 +47,10 @@
       post();
     }
 
-    console.error(msg, stack);
+    devOverlayLog.error('sandbox_error_reported', {
+      message: msg,
+      stack,
+    });
   }
 
   /* vite HMR channel ------------------------------------------------- */

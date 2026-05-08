@@ -2,8 +2,12 @@ import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
 import { ensureUserBalance } from "@/app/api/utils/ensureUserBalance";
 import { tierLevel } from "@/constants/tiers";
+import { createLogger, errorMeta, getRequestId } from "@/lib/logger";
 
 export async function POST(request) {
+  const log = createLogger("api_tasks_submit", {
+    requestId: getRequestId(request),
+  });
   try {
     const session = await auth();
     if (!session || !session.user?.id) {
@@ -100,7 +104,7 @@ export async function POST(request) {
       rewardCents,
     });
   } catch (error) {
-    console.error(error);
+    log.error("handler_failed", errorMeta(error));
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

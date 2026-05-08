@@ -4,6 +4,7 @@ import { extractIdentityDocument } from "@/lib/identity/documentProvider";
 import { validateOcrAgainstDeclaration } from "@/lib/identity/validateIdentityCrosscheck";
 import { SUPPORTED_COUNTRY_VALUES } from "@/constants/supportedCountries";
 import { sendIdentityVerifiedWelcomeEmail } from "@/lib/transactionalEmail";
+import { createLogger, errorMeta, getRequestId } from "@/lib/logger";
 
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
@@ -13,6 +14,9 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 export async function POST(request) {
+  const log = createLogger("api_identity_verify_upload", {
+    requestId: getRequestId(request),
+  });
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -191,7 +195,7 @@ export async function POST(request) {
           legalName: fullName,
         });
       } catch (mailErr) {
-        console.error("[verify-upload] welcome email:", mailErr);
+        log.warn("welcome_email_send_failed", errorMeta(mailErr));
       }
     }
 
@@ -201,7 +205,7 @@ export async function POST(request) {
       identityVerifiedNameSnapshot: snapshot,
     });
   } catch (e) {
-    console.error(e);
+    log.error("handler_failed", errorMeta(e));
     if (
       String(e?.message || "").includes("identity_verified_at") ||
       String(e?.code || "") === "42703"

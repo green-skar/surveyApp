@@ -1,5 +1,8 @@
 import { useCallback } from 'react';
 import { signIn, signOut } from "@auth/create/react";
+import { createLogger, maskEmail } from '@/lib/logger';
+
+const authClientLog = createLogger('auth_client');
 
 /**
  * Auth.js may redirect with a relative `data.url`. @hono/auth-js `signIn(..., { redirect: false })`
@@ -41,9 +44,14 @@ function useAuth() {
 
   const signUpWithCredentials = useCallback((options) => {
     const cb = absoluteCallbackUrl(callbackUrl ?? options?.callbackUrl);
-    // #region agent log
-    fetch('http://127.0.0.1:7792/ingest/21049abd-be9c-4828-94c7-488dccea2750',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'836783'},body:JSON.stringify({sessionId:'836783',runId:'pre-fix',hypothesisId:'H1',location:'src/utils/useAuth.js:45',message:'signUpWithCredentials invoked',data:{hasEmail:Boolean(options?.email),hasName:Boolean(options?.name),redirect:options?.redirect ?? null,callbackUrl:cb ?? null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    authClientLog.debug('signup_invoked', {
+      hasEmail: Boolean(options?.email),
+      emailMasked:
+        typeof options?.email === 'string' ? maskEmail(options.email) : null,
+      hasName: Boolean(options?.name),
+      redirect: options?.redirect ?? null,
+      hasCallbackUrl: Boolean(cb),
+    });
     return signIn("credentials-signup", {
       ...options,
       callbackUrl: cb,

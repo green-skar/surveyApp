@@ -2,8 +2,19 @@ import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
 import { ensureUserBalance } from "@/app/api/utils/ensureUserBalance";
 import { PAYOUT_THRESHOLD_CENTS } from "@/constants/tiers";
+import {
+  createLogger,
+  errorMeta,
+  getRequestFromRouteArg,
+  getRequestId,
+} from "@/lib/logger";
 
-export async function GET() {
+export async function GET(arg) {
+  const request = getRequestFromRouteArg(arg);
+  const log = createLogger("api_payouts", {
+    requestId: getRequestId(request),
+    method: "GET",
+  });
   try {
     const session = await auth();
     if (!session || !session.user?.id) {
@@ -19,12 +30,16 @@ export async function GET() {
     `;
     return Response.json(payouts);
   } catch (error) {
-    console.error(error);
+    log.error("handler_failed", errorMeta(error));
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
 export async function POST(request) {
+  const log = createLogger("api_payouts", {
+    requestId: getRequestId(request),
+    method: "POST",
+  });
   try {
     const session = await auth();
     if (!session || !session.user?.id) {
@@ -97,7 +112,7 @@ export async function POST(request) {
 
     return Response.json({ success: true });
   } catch (error) {
-    console.error(error);
+    log.error("handler_failed", errorMeta(error));
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

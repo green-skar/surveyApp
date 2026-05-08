@@ -1,6 +1,10 @@
 import sql from "@/app/api/utils/sql";
+import { createLogger, errorMeta, getRequestId } from "@/lib/logger";
 
 export async function POST(request) {
+  const log = createLogger("api_auth_verify_email", {
+    requestId: getRequestId(request),
+  });
   try {
     const body = await request.json();
     const { token, email } = body ?? {};
@@ -50,7 +54,7 @@ export async function POST(request) {
 
     return Response.json({ error: "Invalid or expired link" }, { status: 400 });
   } catch (e) {
-    console.error(e);
+    log.error("handler_failed", errorMeta(e));
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

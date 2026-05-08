@@ -1,6 +1,10 @@
 import sql from "@/app/api/utils/sql";
+import { createLogger, errorMeta, getRequestId } from "@/lib/logger";
 
 export async function POST(request) {
+  const log = createLogger("api_auth_signin_hint", {
+    requestId: getRequestId(request),
+  });
   try {
     const body = await request.json();
     const email = body?.email;
@@ -26,7 +30,7 @@ export async function POST(request) {
     }
     return Response.json({ hint: "invalid_credentials" });
   } catch (e) {
-    console.error(e);
+    log.error("handler_failed", errorMeta(e));
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

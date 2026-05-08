@@ -1,8 +1,12 @@
 import { hash, verify } from "argon2";
 import pool from "@/lib/pgPool";
 import { requireAdmin } from "@/app/api/utils/requireAdmin";
+import { createLogger, errorMeta, getRequestId } from "@/lib/logger";
 
 export async function POST(request) {
+  const log = createLogger("api_admin_credentials", {
+    requestId: getRequestId(request),
+  });
   const gate = await requireAdmin();
   if (!gate.ok) return gate.response;
 
@@ -63,7 +67,7 @@ export async function POST(request) {
 
     return Response.json({ ok: true });
   } catch (e) {
-    console.error(e);
+    log.error("handler_failed", errorMeta(e));
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
