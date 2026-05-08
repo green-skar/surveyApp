@@ -1,3 +1,5 @@
+import dns from 'node:dns/promises';
+import net from 'node:net';
 import nodemailer from 'nodemailer';
 import { createLogger, errorMeta } from '@/lib/logger';
 
@@ -15,13 +17,15 @@ function stripPreview(html) {
     .slice(0, 500);
 }
 
-/** Lazy singleton transporter (Gmail or generic SMTP). */
-let smtpTransport = null;
-
 /**
- * Many PaaS hosts (e.g. Render) have no working IPv6 egress. Node may resolve
- * smtp.gmail.com to IPv6 first → ENETUNREACH / ETIMEDOUT. Default to IPv4.
- * Set SMTP_FAMILY=auto (or 0) to use Node's default resolution order.
+ * Nodemailer resolves both A and AAAA, merges them, then picks a **random** address.
+ * On hosts without IPv6 egress (e.g. Render), that still selects IPv6 half the time.
+ * `family` on createTransport is not used by nodemailer's resolver.
+ *
+ * When SMTP_FAMILY=4 (default), we pre-resolve A records and connect by IPv4 literal,
+ * passing `servername` so STARTTLS/SNI still matches the real hostname.
+ *
+ * Set SMTP_FAMILY=auto to pass the hostname through and use nodemailer's default DNS.
  */
 function smtpSocketFamily() {
   const raw = String(process.env.SMTP_FAMILY ?? '4').trim().toLowerCase();
@@ -30,21 +34,79 @@ function smtpSocketFamily() {
   return 4;
 }
 
-function getSmtpTransport() {
-  if (smtpTransport) return smtpTransport;
+/**
+ * @param {string} targetHost
+ * @returns {Promise<{ connectHost: string, servername?: string }>}
+ */
+async function smtpConnectHost(targetHost) {
+  if (net.isIP(targetHost)) {
+    return { connectHost: targetHost };
+  }
 
   const family = smtpSocketFamily();
-  const familyOpts = family === 0 ? {} : { family };
+  if (family === 0) {
+    return { connectHost: targetHost };
+  }
+
+  if (family === 4) {
+    try {
+      const addrs = await dns.resolve4(targetHost);
+      if (addrs.length > 0) {
+        const connectHost = addrs[Math.floor(Math.random() * addrs.length)];
+        return { connectHost, servername: targetHost };
+      }
+    } catch (e) {
+      mailLog.warn('smtp_resolve4_failed', {
+        targetHost,
+        ...errorMeta(e),
+      });
+    }
+    return { connectHost: targetHost };
+  }
+
+  if (family === 6) {
+    try {
+      const addrs = await dns.resolve6(targetHost);
+      if (addrs.length > 0) {
+        const connectHost = addrs[Math.floor(Math.random() * addrs.length)];
+        return { connectHost, servername: targetHost };
+      }
+    } catch (e) {
+      mailLog.warn('smtp_resolve6_failed', {
+        targetHost,
+        ...errorMeta(e),
+      });
+    }
+    return { connectHost: targetHost };
+  }
+
+  return { connectHost: targetHost };
+}
+
+/** @type {import('nodemailer').Transporter | null | undefined} */
+let smtpTransport = undefined;
+
+async function ensureSmtpTransport() {
+  if (smtpTransport !== undefined) return smtpTransport;
 
   const gmailUser = process.env.GMAIL_USER?.trim();
   const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
+  const port = Number(process.env.SMTP_PORT || 587);
+  const secure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true';
 
   if (gmailUser && gmailPass) {
+    const { connectHost, servername } = await smtpConnectHost('smtp.gmail.com');
+    mailLog.info('smtp_transport_gmail', {
+      connectHost,
+      servername: servername ?? null,
+      smtpFamilyPreference: smtpSocketFamily(),
+      port,
+    });
     smtpTransport = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: Number(process.env.SMTP_PORT || 587),
+      host: connectHost,
+      port,
       secure: false,
-      ...familyOpts,
+      ...(servername ? { servername } : {}),
       auth: {
         user: gmailUser,
         pass: gmailPass,
@@ -57,17 +119,26 @@ function getSmtpTransport() {
   if (host) {
     const user = process.env.SMTP_USER?.trim();
     const pass = process.env.SMTP_PASS?.trim();
+    const { connectHost, servername } = await smtpConnectHost(host);
+    mailLog.info('smtp_transport_custom', {
+      connectHost,
+      servername: servername ?? null,
+      smtpFamilyPreference: smtpSocketFamily(),
+      port,
+      secure,
+    });
     smtpTransport = nodemailer.createTransport({
-      host,
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
-      ...familyOpts,
+      host: connectHost,
+      port,
+      secure,
+      ...(servername ? { servername } : {}),
       ...(user || pass ? { auth: { user: user || '', pass: pass || '' } } : {}),
     });
     return smtpTransport;
   }
 
-  return null;
+  smtpTransport = null;
+  return smtpTransport;
 }
 
 async function sendViaResend({ to, subject, html, text }) {
@@ -103,7 +174,7 @@ async function sendViaResend({ to, subject, html, text }) {
 }
 
 async function sendViaSmtp({ to, subject, html, text }) {
-  const transport = getSmtpTransport();
+  const transport = await ensureSmtpTransport();
   if (!transport) return false;
 
   await transport.sendMail({
@@ -142,7 +213,7 @@ export async function sendAppEmail({ to, subject, html, text, requireDelivery = 
     to,
     subject,
     requireDelivery,
-    smtpFamily: smtpSocketFamily() || 'auto',
+    smtpFamilyPreference: smtpSocketFamily() || 'auto',
     hasGmail: Boolean(
       process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim(),
     ),
