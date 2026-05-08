@@ -51,5 +51,6 @@ export async function sendVerificationEmail({ to, token }) {
       "This link expires in 24 hours.",
       "If you did not create this account, you can safely ignore this email.",
     ].join("\n"),
+    requireDelivery: true,
   });
 }

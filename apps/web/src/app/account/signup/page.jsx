@@ -13,6 +13,8 @@ function messageForSignupError(code) {
       return "Sign-up cannot connect to the database because the DB username/password is invalid. Update DATABASE_URL and try again.";
     case "db-sequence-misaligned":
       return "Sign-up hit a database ID sequencing issue. Please retry in a few seconds. If it persists, restart the server or run migrations.";
+    case "verification-email-failed":
+      return "Your account was created, but we could not send the verification email. Please use resend verification in a moment or contact support.";
     case "username-taken":
       return "That username is already taken. Try another one or sign in if it is yours.";
     case "username-conflicts-email":

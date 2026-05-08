@@ -95,6 +95,12 @@ async function sendViaSmtp({ to, subject, html, text }) {
   return true;
 }
 
+function mailError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
 /** True if Gmail, generic SMTP, or Resend is configured. */
 export function isMailConfigured() {
   const gmail =
@@ -108,30 +114,48 @@ export function isMailConfigured() {
  * Single outbound mail entry for the app.
  * Priority: Gmail (GMAIL_*) or generic SMTP (SMTP_HOST) via Nodemailer, then Resend HTTP, else dev log.
  *
- * @param {{ to: string, subject: string, html: string, text?: string }} params
+ * @param {{ to: string, subject: string, html: string, text?: string, requireDelivery?: boolean }} params
  */
-export async function sendAppEmail({ to, subject, html, text }) {
+export async function sendAppEmail({ to, subject, html, text, requireDelivery = false }) {
   if (!to || typeof to !== 'string') {
     console.warn('[SurveyTasker] sendAppEmail: missing `to`');
-    return;
+    if (requireDelivery) {
+      throw mailError(
+        'MAIL_MISSING_TO',
+        'sendAppEmail requires a `to` email address when delivery is required',
+      );
+    }
+    return false;
   }
 
   try {
-    if (await sendViaSmtp({ to, subject, html, text })) return;
+    if (await sendViaSmtp({ to, subject, html, text })) return true;
     if (process.env.RESEND_API_KEY?.trim()) {
-      if (await sendViaResend({ to, subject, html, text })) return;
-      console.error(
-        `[SurveyTasker] Resend send failed for "${subject}" to ${to}; not falling back to dev log.`,
-      );
-      return;
+      if (await sendViaResend({ to, subject, html, text })) return true;
+      const message = `[SurveyTasker] Resend send failed for "${subject}" to ${to}`;
+      console.error(`${message}; not falling back to dev log.`);
+      if (requireDelivery) {
+        throw mailError('MAIL_PROVIDER_REJECTED', message);
+      }
+      return false;
     }
   } catch (e) {
     console.error('[SurveyTasker] sendAppEmail failed:', e);
-    return;
+    if (requireDelivery) {
+      throw mailError(
+        e?.code || 'MAIL_DELIVERY_FAILED',
+        e?.message || 'Email delivery failed',
+      );
+    }
+    return false;
   }
 
-  console.warn(
-    `[SurveyTasker] No mail transport configured (set GMAIL_USER + GMAIL_APP_PASSWORD, or SMTP_HOST, or RESEND_API_KEY). Email not sent: "${subject}" to ${to}`,
-  );
+  const noTransportMessage = `[SurveyTasker] No mail transport configured (set GMAIL_USER + GMAIL_APP_PASSWORD, or SMTP_HOST, or RESEND_API_KEY). Email not sent: "${subject}" to ${to}`;
+  if (requireDelivery) {
+    throw mailError('MAIL_NOT_CONFIGURED', noTransportMessage);
+  }
+
+  console.warn(noTransportMessage);
   console.warn(stripPreview(html));
+  return false;
 }

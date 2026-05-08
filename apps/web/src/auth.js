@@ -419,6 +419,13 @@ export const { auth } = CreateAuth({
         throw credentialsSignin('db-auth-failed');
       }
       if (
+        error?.code === 'MAIL_NOT_CONFIGURED' ||
+        error?.code === 'MAIL_PROVIDER_REJECTED' ||
+        error?.code === 'MAIL_DELIVERY_FAILED'
+      ) {
+        throw credentialsSignin('verification-email-failed');
+      }
+      if (
         error?.code === '23505' &&
         (error?.constraint === 'auth_users_pkey' ||
           error?.constraint === 'auth_accounts_pkey')

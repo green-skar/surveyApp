@@ -41,6 +41,19 @@ export async function POST(request) {
     return Response.json({ ok: true });
   } catch (e) {
     console.error(e);
+    if (
+      e?.code === "MAIL_NOT_CONFIGURED" ||
+      e?.code === "MAIL_PROVIDER_REJECTED" ||
+      e?.code === "MAIL_DELIVERY_FAILED"
+    ) {
+      return Response.json(
+        {
+          error:
+            "Verification email could not be sent. Check email provider settings and try again.",
+        },
+        { status: 503 },
+      );
+    }
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
