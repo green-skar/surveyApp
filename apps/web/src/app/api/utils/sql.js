@@ -1,4 +1,5 @@
 import postgres from 'postgres';
+import { getNormalizedDatabaseUrl } from '@/lib/databaseConnectionString';
 
 const NullishQueryFunction = () => {
   throw new Error(
@@ -33,9 +34,11 @@ const envInt = (value, fallback) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const connectionString = getNormalizedDatabaseUrl();
+
 const raw =
-  process.env.DATABASE_URL &&
-  postgres(process.env.DATABASE_URL, {
+  connectionString &&
+  postgres(connectionString, {
     max: envInt(process.env.DB_POOL_MAX, 20),
     // postgres.js uses seconds for these timeouts.
     idle_timeout: Math.max(

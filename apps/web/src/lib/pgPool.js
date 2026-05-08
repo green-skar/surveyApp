@@ -1,34 +1,16 @@
 import pg from 'pg';
+import {
+  getNormalizedDatabaseUrl,
+  isLikelyPrivateRenderPostgresHost,
+} from './databaseConnectionString.js';
 
 const envInt = (value, fallback) => {
   const parsed = Number.parseInt(String(value ?? ''), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-/**
- * Prefer IPv4 loopback when the URL uses `localhost`. On many Windows/Node setups
- * `localhost` resolves to `::1` first; a Postgres bound only on 127.0.0.1 yields
- * connection failures surfaced as `AggregateError` with an empty `.message`.
- */
-function normalizeDatabaseUrl(url) {
-  if (!url || typeof url !== 'string') return url;
-  const localNormalized = url.replace(/@localhost(?=[:/?#]|$)/gi, '@127.0.0.1');
-  try {
-    const parsed = new URL(localNormalized);
-    const isLocalHost = /^(localhost|127\.0\.0\.1|::1)$/i.test(parsed.hostname);
-    const hasSslMode = parsed.searchParams.has('sslmode');
-    if (!isLocalHost && !hasSslMode) {
-      parsed.searchParams.set('sslmode', 'require');
-      return parsed.toString();
-    }
-    return localNormalized;
-  } catch {
-    return localNormalized;
-  }
-}
-
 const rawUrl = String(process.env.DATABASE_URL ?? '').trim();
-const connectionString = normalizeDatabaseUrl(rawUrl || undefined);
+const connectionString = getNormalizedDatabaseUrl() || undefined;
 
 if (!rawUrl) {
   console.warn(
@@ -46,15 +28,26 @@ const isRemoteDbHost = (() => {
   }
 })();
 
+const isPrivateRenderPostgresHost = (() => {
+  try {
+    if (!connectionString) return false;
+    const { hostname } = new URL(connectionString);
+    return isLikelyPrivateRenderPostgresHost(hostname);
+  } catch {
+    return false;
+  }
+})();
+
 const sslExplicitlyDisabled = /sslmode=disable|ssl=false/i.test(connectionString ?? '');
+
+const wantsSslFromUrl = /neon\.tech|neon\.aws|sslmode=require|sslmode=verify-full|ssl=true/i.test(
+  connectionString ?? '',
+);
 
 const useSsl =
   String(process.env.DATABASE_SSL ?? '').toLowerCase() === 'true' ||
   (!sslExplicitlyDisabled &&
-    (isRemoteDbHost ||
-      /neon\.tech|neon\.aws|sslmode=require|sslmode=verify-full|ssl=true/i.test(
-        connectionString ?? '',
-      )));
+    (wantsSslFromUrl || (isRemoteDbHost && !isPrivateRenderPostgresHost)));
 
 /**
  * Shared pg pool for Auth.js adapter + any direct `pool.query` usage.
