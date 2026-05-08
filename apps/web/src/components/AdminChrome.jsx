@@ -14,10 +14,10 @@ export default function AdminChrome({ children }) {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
-      <div className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <div className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="font-bold text-brand">SurveyTasker Admin</div>
+          <div className="font-bold text-brand dark:text-[var(--color-brand)]">SurveyTasker Admin</div>
           <nav className="flex flex-wrap items-center gap-2">
             {links.map(({ to, label, icon: Icon, end }) => {
               const path = location.pathname.replace(/\/$/, "") || "/";
@@ -32,7 +32,7 @@ export default function AdminChrome({ children }) {
                   className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                     active
                       ? "bg-brand text-white"
-                      : "text-slate-600 hover:bg-slate-100"
+                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                   }`}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -43,7 +43,7 @@ export default function AdminChrome({ children }) {
             <button
               type="button"
               onClick={() => signOut({ callbackUrl: "/" })}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               <LogOut className="h-3.5 w-3.5" />
               Sign out

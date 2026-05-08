@@ -34,6 +34,7 @@ import { toPng } from 'html-to-image';
 import { useNavigate } from 'react-router';
 import { serializeError } from 'serialize-error';
 import { Toaster, toast } from 'sonner';
+import { THEME_CHANGE_EVENT } from '@/lib/theme';
 import { useDevServerHeartbeat } from '../__create/useDevServerHeartbeat';
 import '../__create/design-mode';
 import type { Route } from './+types/root';
@@ -269,6 +270,27 @@ class ErrorBoundaryWrapper extends Component<ErrorBoundaryProps, ErrorBoundarySt
  *
  * Works only in dev; in prod it always returns `true`.
  */
+function useDocThemeForToaster(): 'light' | 'dark' {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+      ? 'dark'
+      : 'light'
+  );
+  useEffect(() => {
+    const sync = () => {
+      setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    };
+    sync();
+    window.addEventListener('storage', sync);
+    window.addEventListener(THEME_CHANGE_EVENT, sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener(THEME_CHANGE_EVENT, sync);
+    };
+  }, []);
+  return theme;
+}
+
 export function useHmrConnection(): boolean {
   const [connected, setConnected] = useState(() => !!import.meta.hot);
 
@@ -394,6 +416,7 @@ export function Layout({ children }: { children: ReactNode }) {
   useHandshakeParent();
   useHandleScreenshotRequest();
   useDevServerHeartbeat();
+  const toasterTheme = useDocThemeForToaster();
   const navigate = useNavigate();
   const location = useLocation();
   const pathname = location?.pathname;
@@ -423,10 +446,16 @@ export function Layout({ children }: { children: ReactNode }) {
     }
   }, [pathname]);
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var t=localStorage.getItem('theme');document.documentElement.classList.toggle('dark',t==='dark');}catch(e){}})();",
+          }}
+        />
         <Meta />
         <Links />
         {import.meta.env.DEV ? (
@@ -439,7 +468,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <ErrorBoundaryWrapper>
           {children}
         </ErrorBoundaryWrapper>
-        <Toaster position={isMobile ? 'top-center' : 'bottom-right'} />
+        <Toaster theme={toasterTheme} position={isMobile ? 'top-center' : 'bottom-right'} />
         <ScrollRestoration />
         <Scripts />
         <script src="https://kit.fontawesome.com/2c15cc0cc7.js" crossOrigin="anonymous" async />

@@ -16,8 +16,8 @@ export async function GET(arg) {
   if (!gate.ok) return gate.response;
 
   try {
-    const [users, jobs, tasks, payouts, contacts] = await Promise.all([
-      sql`SELECT count(*)::int AS c FROM auth_users`,
+    const [activeTaskers, jobs, tasks, payouts, contacts] = await Promise.all([
+      sql`SELECT count(*)::int AS c FROM auth_users WHERE "emailVerified" IS NOT NULL`,
       sql`SELECT count(*)::int AS c FROM jobs`,
       sql`SELECT count(*)::int AS c FROM tasks`,
       sql`SELECT count(*)::int AS c FROM payouts`,
@@ -25,7 +25,7 @@ export async function GET(arg) {
     ]);
 
     return Response.json({
-      users: users[0]?.c ?? 0,
+      activeTaskers: activeTaskers[0]?.c ?? 0,
       jobs: jobs[0]?.c ?? 0,
       tasks: tasks[0]?.c ?? 0,
       payouts: payouts[0]?.c ?? 0,

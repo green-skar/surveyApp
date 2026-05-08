@@ -60,19 +60,19 @@ export default function DashboardLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-surface text-ink overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden bg-surface text-ink dark:bg-[var(--color-surface)] dark:text-[var(--color-ink)]">
       {isMobileNavOpen && (
         <div
-          className="fixed inset-0 z-40 bg-shell/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-shell/40 backdrop-blur-sm dark:bg-black/50 lg:hidden"
           onClick={() => setIsMobileNavOpen(false)}
         />
       )}
 
-      <header className="sticky top-0 z-50 border-b border-line bg-surface-card/95 backdrop-blur">
+      <header className="sticky top-0 z-50 border-b border-line bg-surface-card/95 backdrop-blur dark:border-[var(--color-line)] dark:bg-[var(--color-card)]/95">
         <div className="mx-auto flex w-full max-w-[1400px] items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white text-ink-muted transition hover:bg-surface-muted hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 lg:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white text-ink-muted transition hover:bg-surface-muted hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:border-[var(--color-line)] dark:bg-[var(--color-card)] dark:text-slate-400 dark:hover:bg-[var(--color-surface-muted)] lg:hidden"
             onClick={() => setIsMobileNavOpen(true)}
             aria-label="Open navigation menu"
           >
@@ -83,7 +83,7 @@ export default function DashboardLayout({ children }) {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white shadow-sm">
               <Briefcase size={18} />
             </div>
-            <span className="text-base font-semibold tracking-tight text-ink">
+            <span className="text-base font-semibold tracking-tight text-ink dark:text-[var(--color-ink)]">
               SurveyTasker
             </span>
           </a>
@@ -95,8 +95,8 @@ export default function DashboardLayout({ children }) {
                 href={item.href}
                 className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${
                   isActive(item.href)
-                    ? "bg-brand/10 text-brand"
-                    : "text-ink-muted hover:bg-surface-muted hover:text-ink"
+                    ? "bg-brand/10 text-brand dark:bg-brand/20 dark:text-[var(--color-brand)]"
+                    : "text-ink-muted hover:bg-surface-muted hover:text-ink dark:text-slate-400 dark:hover:bg-[var(--color-surface-muted)] dark:hover:text-[var(--color-ink)]"
                 }`}
               >
                 <item.icon size={16} />
@@ -108,20 +108,20 @@ export default function DashboardLayout({ children }) {
           <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
             <button
               type="button"
-              className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white text-ink-muted transition-colors hover:bg-surface-muted hover:text-brand"
+              className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white text-ink-muted transition-colors hover:bg-surface-muted hover:text-brand dark:border-[var(--color-line)] dark:bg-[var(--color-card)] dark:text-slate-400 dark:hover:bg-[var(--color-surface-muted)]"
               aria-label="Notifications"
             >
               <Bell size={18} />
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
             </button>
 
-            <div className="hidden items-center gap-2 rounded-xl border border-line bg-white px-3 py-1.5 sm:flex">
+            <div className="hidden items-center gap-2 rounded-xl border border-line bg-white px-3 py-1.5 dark:border-[var(--color-line)] dark:bg-[var(--color-card)] sm:flex">
               <div className="text-right leading-tight">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-ink-muted">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-ink-muted dark:text-slate-500">
                   Balance
                 </p>
                 <div className="flex items-center justify-end gap-1.5">
-                  <p className="text-sm font-bold text-brand">
+                  <p className="text-sm font-bold text-brand dark:text-[var(--color-brand)]">
                     ${(Number(profile?.available_balance_cents ?? 0) / 100).toFixed(2)}
                   </p>
                   {profile?.identityVerified && (
@@ -134,7 +134,7 @@ export default function DashboardLayout({ children }) {
               </div>
             </div>
 
-            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-line bg-surface-muted shadow-inner">
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-line bg-surface-muted shadow-inner dark:border-[var(--color-line)] dark:bg-[var(--color-surface-muted)]">
               {user.image ? (
                 <img src={user.image} alt="Avatar" className="h-full w-full object-cover" />
               ) : (
@@ -148,7 +148,7 @@ export default function DashboardLayout({ children }) {
       </header>
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-80 max-w-[85vw] transform border-r border-line bg-surface-card p-4 shadow-xl transition-transform duration-300 lg:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 w-80 max-w-[85vw] transform border-r border-line bg-surface-card p-4 shadow-xl transition-transform duration-300 dark:border-[var(--color-line)] dark:bg-[var(--color-card)] lg:hidden ${
           isMobileNavOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -157,13 +157,13 @@ export default function DashboardLayout({ children }) {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white shadow-sm">
               <Briefcase size={18} />
             </div>
-            <span className="text-base font-semibold tracking-tight text-ink">
+            <span className="text-base font-semibold tracking-tight text-ink dark:text-[var(--color-ink)]">
               SurveyTasker
             </span>
           </a>
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white text-ink-muted transition hover:bg-surface-muted hover:text-brand"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white text-ink-muted transition hover:bg-surface-muted hover:text-brand dark:border-[var(--color-line)] dark:bg-[var(--color-card)] dark:text-slate-400 dark:hover:bg-[var(--color-surface-muted)]"
             onClick={() => setIsMobileNavOpen(false)}
             aria-label="Close navigation menu"
           >
@@ -179,8 +179,8 @@ export default function DashboardLayout({ children }) {
               onClick={() => setIsMobileNavOpen(false)}
               className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors ${
                 isActive(item.href)
-                  ? "bg-brand/10 text-brand"
-                  : "text-ink-muted hover:bg-surface-muted hover:text-ink"
+                  ? "bg-brand/10 text-brand dark:bg-brand/20 dark:text-[var(--color-brand)]"
+                  : "text-ink-muted hover:bg-surface-muted hover:text-ink dark:text-slate-400 dark:hover:bg-[var(--color-surface-muted)] dark:hover:text-[var(--color-ink)]"
               }`}
             >
               <item.icon size={18} />
@@ -189,10 +189,10 @@ export default function DashboardLayout({ children }) {
           ))}
         </nav>
 
-        <div className="mt-5 border-t border-line pt-4">
+        <div className="mt-5 border-t border-line pt-4 dark:border-[var(--color-line)]">
           <a
             href="/account/logout"
-            className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-muted hover:text-red-600"
+            className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-muted hover:text-red-600 dark:text-slate-400 dark:hover:bg-[var(--color-surface-muted)]"
           >
             <LogOut size={18} />
             <span>Log out</span>

@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Tag,
   BadgeCheck,
+  Moon,
 } from "lucide-react";
 import IdentityVerificationForm from "@/components/IdentityVerificationForm";
 import { motion } from "motion/react";
@@ -24,6 +25,7 @@ import {
   normalizePaymentPreference,
 } from "@/constants/mobilePayments";
 import { SUPPORTED_COUNTRIES } from "@/constants/supportedCountries";
+import { applyTheme, readStoredTheme } from "@/lib/theme";
 
 const INTERESTS = [
   "Technology",
@@ -42,12 +44,12 @@ const INTERESTS = [
 
 function SectionCard({ icon: Icon, title, children }) {
   return (
-    <div className="overflow-hidden rounded-[2rem] border border-slate-100 bg-white shadow-sm">
-      <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-5 py-4 sm:px-8 sm:py-5">
-        <div className="h-9 w-9 rounded-xl bg-brand/10 text-brand flex items-center justify-center">
+    <div className="overflow-hidden rounded-[2rem] border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-[var(--color-card)]">
+      <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-5 py-4 sm:px-8 sm:py-5 dark:border-slate-700 dark:bg-[var(--color-surface-muted)]">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand/10 text-brand dark:bg-brand/20 dark:text-[var(--color-brand)]">
           <Icon size={18} />
         </div>
-        <h2 className="font-bold text-slate-800">{title}</h2>
+        <h2 className="font-bold text-slate-800 dark:text-[var(--color-ink)]">{title}</h2>
       </div>
       <div className="p-5 sm:p-8">{children}</div>
     </div>
@@ -56,7 +58,7 @@ function SectionCard({ icon: Icon, title, children }) {
 
 function Label({ children }) {
   return (
-    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
       {children}
     </label>
   );
@@ -65,7 +67,7 @@ function Label({ children }) {
 function Input({ className = "", ...props }) {
   return (
     <input
-      className={`w-full px-5 py-3.5 rounded-2xl border border-slate-200 bg-slate-50 text-slate-800 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all placeholder-slate-300 ${className}`}
+      className={`w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-sm font-medium text-slate-800 transition-all placeholder-slate-300 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30 dark:border-slate-600 dark:bg-[var(--color-surface-muted)] dark:text-[var(--color-ink)] dark:placeholder-slate-500 ${className}`}
       {...props}
     />
   );
@@ -98,6 +100,12 @@ export default function SettingsPage() {
     payout_updates: true,
     promotions: false,
   });
+
+  const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    setDarkMode(readStoredTheme() === "dark");
+  }, []);
 
   useEffect(() => {
     if (profile) {
@@ -158,18 +166,51 @@ export default function SettingsPage() {
     signOut({ callbackUrl: "/account/signin", redirect: true });
   };
 
+  const handleDarkModeToggle = (enabled) => {
+    setDarkMode(enabled);
+    applyTheme(enabled ? "dark" : "light");
+  };
+
   return (
     <DashboardLayout>
       <div className="min-w-0 space-y-6 sm:space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-[var(--color-ink)] sm:text-3xl">
             Settings
           </h1>
-          <p className="text-slate-500 mt-1">
+          <p className="mt-1 text-slate-500 dark:text-slate-400">
             Manage your account, preferences, and notifications.
           </p>
         </div>
+
+        <SectionCard icon={Moon} title="Appearance">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-800 dark:text-[var(--color-ink)]">
+                Dark mode
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Softer colors across the dashboard and admin areas.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={darkMode}
+              onClick={() => handleDarkModeToggle(!darkMode)}
+              className={`relative h-8 w-14 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${
+                darkMode ? "bg-brand dark:bg-[var(--color-brand)]" : "bg-slate-200 dark:bg-slate-600"
+              }`}
+            >
+              <span
+                className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                  darkMode ? "translate-x-6" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        </SectionCard>
 
         {/* Profile Info */}
         <SectionCard icon={User} title="Profile Information">
@@ -197,7 +238,7 @@ export default function SettingsPage() {
                 <Input
                   value={user?.email || ""}
                   disabled
-                  className="bg-slate-100 text-slate-400 cursor-not-allowed"
+                  className="cursor-not-allowed bg-slate-100 text-slate-400 dark:bg-[var(--color-surface-muted)] dark:text-slate-500"
                 />
                 <p className="text-xs text-slate-400 mt-1.5 ml-1">
                   Email cannot be changed.
@@ -214,7 +255,7 @@ export default function SettingsPage() {
                     setForm((p) => ({ ...p, country: e.target.value }))
                   }
                   disabled={isLoading}
-                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 bg-slate-50 text-slate-800 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all appearance-none cursor-pointer"
+                  className="w-full cursor-pointer appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-sm font-medium text-slate-800 transition-all focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30 dark:border-slate-600 dark:bg-[var(--color-surface-muted)] dark:text-[var(--color-ink)]"
                 >
                   <option value="">Select your country…</option>
                   {SUPPORTED_COUNTRIES.map((c) => (

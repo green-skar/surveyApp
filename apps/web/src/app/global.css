@@ -6,11 +6,23 @@
   :root {
     --color-surface: #e7e1d4;
     --color-surface-muted: #dbd2c1;
+    --color-card: #ffffff;
     --color-brand: #2d4a22;
     --color-brand-hover: #24381a;
     --color-ink: #1a1a1a;
     --color-shell: #152213;
     --color-line: #e3dfd6;
+  }
+
+  html.dark {
+    --color-surface: #141816;
+    --color-surface-muted: #1c221e;
+    --color-card: #1e2620;
+    --color-brand: #6b9a5e;
+    --color-brand-hover: #7daf6f;
+    --color-ink: #e8ebe6;
+    --color-shell: #0d120f;
+    --color-line: #2a332c;
   }
 
   html {
@@ -32,6 +44,10 @@
 
 .hero-gradient {
   background: linear-gradient(180deg, #e7e1d4 0%, #dbd2c1 50%, #cfc4b0 100%);
+}
+
+html.dark .hero-gradient {
+  background: linear-gradient(180deg, #1a211c 0%, #141a17 50%, #0f1411 100%);
 }
 
 .text-gradient {
